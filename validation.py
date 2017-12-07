@@ -9,7 +9,6 @@ list of the missing block numbers.
     start: the block from which the function should validate
 """
 def validate(start):
-    print("Validating all blocks from", start)
     names = os.popen("ls /var/www/html/primes | sort -V").read().strip().split("\n")
 
     blocks = []
@@ -29,11 +28,12 @@ def validate(start):
     for block in blocks:
         if i < len(blocks) - 1:
             if blocks[i + 1][0] != block[0] + block[1]:
-                print("miss!", block, blocks[i + 1])
+                # print("miss!", block, blocks[i + 1])
                 check_block_num = block[0] + block[1]
                 # zolang we nog niet bij het goede block zijn...
                 while check_block_num != blocks[i + 1][0]:
-                    missing.append(check_block_num)
+                    if check_block_num not in missing:
+                        missing.append(check_block_num)
                     check_block_num += block[1]
 
         i += 1
@@ -42,6 +42,10 @@ def validate(start):
 
 def validation_loop():
     while True:
-        # validate everything every hour
+        prev_len = len(missing)
+
         validate(1600000000000000)
         time.sleep(60 * 60)
+
+        if len(missing) != prev_len:
+            print("Validated. Number of incorrect blocks: ", len(missing))
