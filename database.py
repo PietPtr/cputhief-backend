@@ -4,6 +4,7 @@ from flask import jsonify
 from flask import session, g, redirect, url_for, abort, render_template, flash
 from server import app
 import sqlite3
+from werkzeug.local import LocalProxy
 
 def connect_db():
     rv = sqlite3.connect(app.config['DATABASE'])

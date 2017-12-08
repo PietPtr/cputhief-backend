@@ -4,8 +4,6 @@ from flask import jsonify
 from flask import session, g, redirect, url_for, abort, render_template, flash
 import api
 import json
-import threading
-import validation
 import os
 import sqlite3
 
@@ -21,20 +19,22 @@ app.config.update(dict(
 app.config.from_envvar('CPUTHIEF_SETTINGS', silent=True)
 
 from database import *
+import threading
+import validation
 
 block_size = 1024
 
 pointer = 0
 
-val_thread = threading.Thread(target=validation.validation_loop)
-val_thread.deamon = True
+# val_thread = threading.Thread(target=validation.validation_loop)
+# val_thread.deamon = True
 # val_thread.start()
 
 with app.app_context():
     print("fetching pointer...")
     db = get_db()
     cur = db.execute('select max(blocknum) from blocks;')
-    pointer = cur.fetchone()[0]
+    pointer = cur.fetchone()[0] + block_size
     print("starting at pointer", pointer, "...")
 
 @app.route("/api/test", methods=['POST', 'GET'])
@@ -88,11 +88,12 @@ def num_primes():
 
 @app.route("/api/validate", methods = ['POST'])
 def validate():
-    ip = os.popen("ifconfig | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2}'").read().strip()
+    # ip = os.popen("ifconfig | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2}'").read().strip()
 
-    if ip != request.remote_addr:
+    if '127.0.0.1' != request.remote_addr:
         return api.error("You're not me :)", 418)
 
+    validation.validate()
 
     return api.success()
 
