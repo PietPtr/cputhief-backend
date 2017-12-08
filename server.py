@@ -20,40 +20,22 @@ app.config.update(dict(
     ))
 app.config.from_envvar('CPUTHIEF_SETTINGS', silent=True)
 
+from database import *
+
 block_size = 1024
 
-pointer = int(os.popen("ls /var/www/html/primes | tail -n 1").read().split('_')[1])
-print("Starting at", pointer, "...")
+pointer = 0
 
 val_thread = threading.Thread(target=validation.validation_loop)
 val_thread.deamon = True
-val_thread.start()
+# val_thread.start()
 
-def connect_db():
-    rv = sqlite3.connect(app.config['DATABASE'])
-    rv.row_factory = sqlite3.Row
-    return rv
-
-def get_db():
-    if not hasattr(g, 'sqlite_db'):
-        g.sqlite_db = connect_db()
-    return g.sqlite_db
-
-@app.teardown_appcontext
-def close_db(error):
-    if hasattr(g, 'sqlite_db'):
-        g.sqlite_db.close()
-
-def init_db():
+with app.app_context():
+    print("fetching pointer...")
     db = get_db()
-    with app.open_resource('schema.sql', mode='r') as f:
-        db.cursor().executescript(f.read())
-    db.commit()
-
-@app.cli.command('initdb')
-def initdb_command():
-    init_db()
-    print('initialized the database')
+    cur = db.execute('select max(blocknum) from blocks;')
+    pointer = cur.fetchone()[0]
+    print("starting at pointer", pointer, "...")
 
 @app.route("/api/test", methods=['POST', 'GET'])
 def test():
@@ -71,11 +53,11 @@ def get_number():
     global pointer
     global block_size
 
-    if len(validation.missing) > 0:
-        print(validation.missing)
-        block = { "block": validation.missing[0], "n": block_size }
-        validation.missing.pop(0)
-        return api.send_json(block)
+    # if len(validation.missing) > 0:
+    #     print(validation.missing)
+    #     block = { "block": validation.missing[0], "n": block_size }
+    #     validation.missing.pop(0)
+    #     return api.send_json(block)
 
     block = { "block": pointer, "n": block_size }
     pointer += block_size
@@ -93,6 +75,8 @@ def post_results():
         else:
             db.execute('insert into primes values (?, 1)', (prime,))
 
+    db.execute('insert into blocks values(?, ?)', (data["block"], data["n"]))
+
     db.commit()
 
     return api.success()
@@ -109,7 +93,14 @@ def validate():
     if ip != request.remote_addr:
         return api.error("You're not me :)", 418)
 
-    validation.validate(1600000000000000)
-    print("Validated. Number of incorrect blocks: ", len(validation.missing))
 
     return api.success()
+
+def start():
+    global pointer
+
+    print("fetching pointer...")
+    db = get_db()
+    cur = db.execute('select max(number) from primes;')
+    pointer = cur.fetchone()
+    print("starting at pointer", pointer, "...")
